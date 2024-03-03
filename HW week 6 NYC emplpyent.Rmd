@@ -1,0 +1,157 @@
+---
+title: "HW6 1of3 DATA607"
+author: "Angel Gallardo"
+date: "2024-03-02"
+output: html_document
+---
+
+#ANgel Gallardo 
+
+# analyze nyc monthly jobs by industry for the last 34 years. Which industry provide more stability? WHat is the growth by industry for the last 10 years?
+
+
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+
+```{r}
+nycemp <- read.csv("https://raw.githubusercontent.com/Angelogallardo05/Week6/main/nychist.csv")
+head(nycemp)
+```
+
+
+
+# make the columns with numbers as numeric.
+```{r}
+
+
+
+nycemp <- nycemp %>%
+  mutate(across(starts_with("JAN"):ends_with("ANNUAL"), ~as.numeric(gsub(",", "", .))))
+
+head(nycemp)
+
+```
+
+# remove other columns
+
+```{r}
+nycemp <- nycemp %>%
+  select(-19:-47)
+         
+
+```
+
+#fill the average colu,m
+```{r}
+nycemp <- nycemp %>%
+  rowwise() %>%
+  mutate(ANNUAL = ifelse(is.na(ANNUAL), mean(c_across(JAN:DEC), na.rm = TRUE), ANNUAL)) %>%
+  ungroup()
+
+head(nycemp)
+```
+
+
+
+
+
+
+
+
+# pivot wider to make the Years into columns
+
+```{r}
+nycemp_year <- nycemp %>%
+  group_by(INDUSTRY_TITLE, AREANAME, YEAR) %>%
+  summarise(ANNUAL = mean(ANNUAL)) %>%
+  select(INDUSTRY_TITLE, AREANAME, YEAR, ANNUAL)
+
+nycemp_filtered <- nycemp_year %>%
+  pivot_wider(names_from = YEAR, values_from = ANNUAL) %>%
+  mutate_all(~ replace(., is.na(.), 0)) %>%
+  select(INDUSTRY_TITLE, AREANAME, order(as.numeric(colnames(.))))  
+
+
+
+```
+
+
+
+
+
+# calculate the average job growth rate for each industry in the past 10 years.
+```{r}
+last_10_years <- nycemp_filtered %>%
+  select(INDUSTRY_TITLE, AREANAME, `2014`:`2023`)
+
+# Calculate percentage changes for each year
+percentage_changes <- last_10_years %>%
+  mutate(
+    Percentage_Change_2015 = ((`2015` - `2014`) / `2014`) * 100,
+    Percentage_Change_2016 = ((`2016` - `2015`) / `2015`) * 100,
+    Percentage_Change_2017 = ((`2017` - `2016`) / `2016`) * 100,
+    Percentage_Change_2018 = ((`2018` - `2017`) / `2017`) * 100,
+    Percentage_Change_2019 = ((`2019` - `2018`) / `2018`) * 100,
+    Percentage_Change_2020 = ((`2020` - `2019`) / `2019`) * 100,
+    Percentage_Change_2021 = ((`2021` - `2020`) / `2020`) * 100,
+    Percentage_Change_2022 = ((`2022` - `2021`) / `2021`) * 100,
+    Percentage_Change_2023 = ((`2023` - `2022`) / `2022`) * 100
+  ) %>%
+  select(-matches("^\\d{4}$"))  # Remove original columns
+
+
+```
+
+
+```{r}
+```
+
+# sort by highest grwoth in 2023
+
+```{r}
+highest_growth_2023 <- percentage_changes %>%
+  filter(Percentage_Change_2023 == max(Percentage_Change_2023)) %>%
+  arrange(desc(Percentage_Change_2023))
+
+
+
+glimpse(percentage_changes)
+```
+```{r}
+percentage_changes <- percentage_changes %>%
+  rename_with(~ gsub("Percentage_Change_", "", .), starts_with("Percentage_Change_"))
+
+```
+
+
+
+
+# Home Health care services have the least violatile job growth in the last 10 years
+
+```{r}
+top_5_industries <- highest_growth_2023$INDUSTRY_TITLE[1:5]
+top_5_growth <- percentage_changes %>%
+  filter(INDUSTRY_TITLE %in% top_5_industries) %>%
+  pivot_longer(cols = starts_with("2"), 
+               names_to = "Year", 
+               values_to = "Percentage_Change")
+
+# Plot
+ggplot(top_5_growth, aes(x = Year, y = Percentage_Change, group = INDUSTRY_TITLE, color = INDUSTRY_TITLE)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Top 5 Industries with Highest Growth Percentage (2014-2023)",
+       x = "Year",
+       y = "Percentage Change") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+
+
+
