@@ -1,0 +1,158 @@
+---
+title: 'DATA607 p2 #3'
+author: "Angel Gallardo"
+date: "2024-03-03"
+output: html_document
+---
+# Abstract: Data includes the yearlyaverage change of temperature in celsius for each country. We will change the results to Farenheit and find which country has the bigger temperature change on average. Do they follow a normal distribution? How does it compare with US?
+```{r}
+library(tidyverse)
+library(dplyr)
+
+climate <- read.csv("https://raw.githubusercontent.com/Angelogallardo05/Week6/main/Indicator_3_1_Climate_Indicators_Annual_Mean_Global_Surface_Temperature_577579683071085080.csv")
+head(climate)
+
+
+```
+
+
+# remove duplicate and unecessary columns
+```{r}
+climate <- climate[, -c(4, 5, 7, 8, 9)]
+
+
+```
+
+
+
+
+
+# remove the X in the names of the Year's columns
+```{r}
+names(climate)[6:ncol(climate)] <- gsub("^X", "", names(climate)[6:ncol(climate)])
+```
+
+
+
+
+
+# Remove rows with NA
+
+
+```{r}
+climate_clean <- na.omit(climate)
+
+
+```
+
+#Add "World " to the ISO2 column , resulting in no blanks for that column
+```{r}
+climate_clean$ISO2[155] <- "World"
+
+
+```
+
+
+
+```{r}
+climate_clean <- climate_clean %>%
+  mutate(across(6:last_col(), ~ . * 9/5))
+
+```
+
+
+
+# change the column description from degree celsius to Degree Farenheit
+```{r}
+climate_clean <- climate_clean %>%
+  mutate(Unit = if_else(Unit == "Degree Celsius", "Degree Fahrenheit", Unit))
+
+
+              
+```
+
+
+
+
+```{r}
+climate_clean <- climate_clean %>%
+  mutate(average_temp_change = rowMeans(select(., 6:last_col()), na.rm = TRUE))
+
+
+```
+
+
+
+
+#Sort by highest to lowest average temperature change by country
+```{r}
+sorted_data <- climate_clean %>%
+  arrange(desc(average_temp_change))
+
+
+
+```
+
+
+
+
+# analyze mongolia, normal distribution of temperatur change, has a normal distribution
+```{r}
+mongolia_data <- climate_clean %>% 
+  filter(Country == "Mongolia") 
+
+# Extract temperature change values
+temperature_change <- unlist(mongolia_data[, 6:ncol(mongolia_data)], use.names = FALSE)
+
+# Calculate mean and standard deviation
+mean_temp_change <- mean(temperature_change, na.rm = TRUE)
+sd_temp_change <- sd(temperature_change, na.rm = TRUE)
+
+# Generate simulated normal distribution
+simulated_data_mongolia <- rnorm(n = 1000, mean = mean_temp_change, sd = sd_temp_change)
+
+# Create histogram
+ggplot() +
+  geom_histogram(aes(x = simulated_data_mongolia), binwidth = 0.05, fill = "skyblue", color = "black") +
+  labs(title = "Simulated Normal Distribution of Temperature Change for Mongolia",
+       x = "Temperature Change",
+       y = "Frequency")
+```
+
+```{r}
+quartiles <- quantile(simulated_data_mongolia, probs = c(0.25, 0.5, 0.75))
+
+# Print quartiles
+print(quartiles)
+```
+
+# repeat for US, also a normal distribution for temperature change
+# US temperature changes quite lower than Mongolia. It has a more normal distribution with a shorter range. 
+```{r}
+us_data <- climate_clean %>% 
+  filter(Country == "United States") 
+
+# Extract temperature change values
+temperature_change <- unlist(us_data[, 6:ncol(us_data)], use.names = FALSE)
+
+# Calculate mean and standard deviation
+usmean_temp_change <- mean(temperature_change, na.rm = TRUE)
+ussd_temp_change <- sd(temperature_change, na.rm = TRUE)
+
+# Generate simulated normal distribution
+simulated_data_us <- rnorm(n = 1000, mean = usmean_temp_change, sd = ussd_temp_change)
+
+# Create histogram
+ggplot() +
+  geom_histogram(aes(x = simulated_data_us), binwidth = 0.05, fill = "skyblue", color = "black") +
+  labs(title = "Simulated Normal Distribution of Temperature Change for Mongolia",
+       x = "Temperature Change",
+       y = "Frequency")
+```
+```{r}
+quartiles <- quantile(simulated_data_us, probs = c(0.25, 0.5, 0.75))
+
+# Print quartiles
+print(quartiles)
+```
+
