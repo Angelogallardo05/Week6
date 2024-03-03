@@ -1,0 +1,122 @@
+---
+title: "HW week 6 DOF"
+author: "Angel Gallardo"
+date: "2024-03-03"
+output: html_document
+
+
+#Abstract: Home sales in NYC for since 2010. Which neighborhood in Queens have sold the most homes since 2010? Which neghborhood have the most expensive homes, on average? 
+---
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+
+
+```{r}
+DOF <- read.csv("https://raw.githubusercontent.com/Angelogallardo05/Week6/main/DOF__Summary_of_Neighborhood_Sales_by_Neighborhood_Citywide_by_Borough_20240302.csv")
+head(DOF)
+```
+
+# adjust the "TYPE.OF.HOME" in uniform 
+```{r}
+str(DOF)
+
+DOF <- DOF %>%
+  mutate(TYPE.OF.HOME = gsub("\\D", "", TYPE.OF.HOME))
+
+DOF <- DOF %>%
+  mutate(TYPE.OF.HOME = paste0(TYPE.OF.HOME, " Family homes"))
+
+
+```
+
+
+
+# Replace the integers in the BOROUGH column with the corroect borough name
+```{r}
+borough_mapping <- c("1" = "MANHATTAN", "2" = "BRONX", "3" = "BROOKLYN", "4" = "QUEENS", "5" = "STATEN ISLAND")
+
+# Replace integers in the BOROUGH column with correct borough names
+DOF$BOROUGH <- ifelse(DOF$BOROUGH %in% names(borough_mapping), 
+                      borough_mapping[as.character(DOF$BOROUGH)], 
+                      DOF$BOROUGH)
+
+
+
+```
+
+#Filter by 1 family homes in Queens
+
+```{r}
+filtered_data <- DOF %>%
+  filter(TYPE.OF.HOME== "01 Family homes" & BOROUGH == "QUEENS")
+
+
+```
+
+#Bar chart to show the neighborhoods in queens with the most sales 2010-2022, one family home
+```{r}
+# Calculate total number of sales for each neighborhood
+neighborhood_sales <- filtered_data %>%
+  group_by(NEIGHBORHOOD) %>%
+  summarise(total_sales = sum(NUMBER.OF.SALES)) %>%
+  arrange(desc(total_sales)) %>%
+  slice_head(n = 5)
+
+# Create a bar chart
+ggplot(neighborhood_sales, aes(x = reorder(NEIGHBORHOOD, -total_sales), y = total_sales)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(x = "Neighborhood", y = "Total Number of Sales", title = "Top 5 Neighborhoods with the Most Number of Sales 20") +
+  coord_flip()  # Horizontal bars for better readability
+```
+
+
+
+# 2021 included a big jumb in home sales in the North-Flushing Area, however house price did not increas dramatically.
+```{r}
+neighborhood_sales <- filtered_data %>%
+  filter(NEIGHBORHOOD == "FLUSHING-NORTH") %>%
+  group_by(YEAR)
+print(neighborhood_sales)
+
+plot_sales <- ggplot(neighborhood_sales, aes(x = YEAR, y = NUMBER.OF.SALES)) +
+  geom_line(color = "blue") +
+  labs(x = "Year", y = "Total Number of Sales", title = "Total Number of Sales per Year for FLUSHING-NORTH") +
+  theme_minimal()
+
+# Create plot for Average Sale Price
+plot_price <- ggplot(neighborhood_sales, aes(x = YEAR, y = AVERAGE.SALE.PRICE/1000000)) +
+  geom_line(color = "red") +
+  labs(x = "Year", y = "Average Sale Price (MM)", title = "Average Sale Price per Year for FLUSHING-NORTH 2010-2022") +
+  theme_minimal()
+
+# Display both plots
+plot_sales
+plot_price
+```
+
+
+
+# LIC had a large decline in average home sale price price starting in 2021
+```{r}
+top5_data <- filtered_data %>%
+  group_by(NEIGHBORHOOD) %>%
+  summarise(avg_sale_price = mean(AVERAGE.SALE.PRICE)) %>%
+  top_n(5, avg_sale_price) %>%
+  inner_join(filtered_data, by = "NEIGHBORHOOD")  # Join with original data to get all years
+
+
+
+# Create a line plot for top 5 neighborhoods
+ggplot(top5_data, aes(x = YEAR, y = AVERAGE.SALE.PRICE, color = NEIGHBORHOOD)) +
+  geom_line() +
+  scale_x_continuous(breaks = unique(top5_data$YEAR), labels = unique(top5_data$YEAR)) +
+   scale_y_continuous(labels = scales::dollar_format(suffix = "MM", scale = 1e-6))+
+  theme_minimal() +
+  labs(x = "Year", y = "Average Sale Price", title = "Average Single Home Sale Price by Year for Top 5 Neighborhoods") +
+  theme(legend.position = "right")
+```
+
